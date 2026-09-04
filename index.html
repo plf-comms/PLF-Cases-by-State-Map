@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Pacific Legal Foundation — Active Cases Nationwide">
+<title>PLF Active Cases — Nationwide Map</title>
+
+<!-- PLF Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Special+Elite&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+
+<style>
+/* ── PLF Brand Tokens ─────────────────────────────────── */
+:root {
+  --capsaicin:  #E64324;
+  --night:      #090C0B;
+  --gritstone:  #FDF8F0;
+  --gold:       #907B50;
+  --forest:     #202B29;
+  --cap-light:  #f9d0c4;
+  --cap-mid:    #f08060;
+  --cap-dark:   #8a1a0e;
+  --muted:      #ccc8be;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: 'Work Sans', sans-serif;
+  background: var(--gritstone);
+  color: var(--night);
+  overflow: hidden;
+}
+
+#layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ── Header ── */
+header {
+  background: var(--night);
+  padding: 0 20px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  border-bottom: 3px solid var(--capsaicin);
+  z-index: 1001;
+}
+.header-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.header-name {
+  font-family: 'Oswald', sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  color: var(--gritstone);
+  text-transform: uppercase;
+}
+.header-tag {
+  font-family: 'Special Elite', serif;
+  font-size: 0.72rem;
+  color: var(--capsaicin);
+  letter-spacing: 0.5px;
+}
+#total-badge {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ── Map row ── */
+#map-row {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+#map { flex: 1; background: var(--gritstone); }
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 360px;
+  background: var(--gritstone);
+  border-left: 3px solid var(--capsaicin);
+  display: flex;
+  flex-direction: column;
+  z-index: 999;
+  flex-shrink: 0;
+  box-shadow: -4px 0 20px rgba(9,12,11,.15);
+}
+
+#sidebar-header {
+  background: var(--night);
+  padding: 14px 16px 12px;
+  flex-shrink: 0;
+  border-bottom: 2px solid var(--capsaicin);
+}
+#sidebar-state {
+  font-family: 'Oswald', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--gritstone);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+#sidebar-meta {
+  font-family: 'Special Elite', serif;
+  font-size: 0.78rem;
+  color: var(--gold);
+  margin-top: 3px;
+}
+#close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: transparent;
+  border: 1px solid rgba(253,248,240,.25);
+  color: var(--gritstone);
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+  opacity: .7;
+  transition: opacity .15s, background .15s;
+  z-index: 10;
+}
+#close-btn:hover { opacity: 1; background: rgba(230,67,36,.3); }
+
+#sidebar-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 12px 14px 20px;
+}
+#sidebar-body::-webkit-scrollbar { width: 4px; }
+#sidebar-body::-webkit-scrollbar-track { background: transparent; }
+#sidebar-body::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
+
+.case-card {
+  background: #fff;
+  border-left: 4px solid var(--capsaicin);
+  border-radius: 0 4px 4px 0;
+  padding: 11px 13px 10px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 4px rgba(9,12,11,.07);
+  transition: box-shadow .15s;
+}
+.case-card:hover { box-shadow: 0 3px 10px rgba(9,12,11,.12); }
+
+.case-badge {
+  display: inline-block;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  font-size: 0.6rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 2px;
+  color: #fff;
+  margin-bottom: 5px;
+}
+
+.case-title {
+  font-family: 'Work Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--night);
+  line-height: 1.4;
+  margin-bottom: 5px;
+}
+.case-desc {
+  font-family: 'Work Sans', sans-serif;
+  font-weight: 400;
+  font-size: 0.77rem;
+  color: #444;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.case-court {
+  font-family: 'Special Elite', serif;
+  font-size: 0.68rem;
+  color: #777;
+  line-height: 1.3;
+  margin-bottom: 7px;
+}
+.case-link {
+  display: inline-block;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  font-size: 0.65rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--capsaicin);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color .15s;
+}
+.case-link:hover { border-bottom-color: var(--capsaicin); }
+.case-link::after { content: ' →'; }
+
+/* ── Legend ── */
+#legend {
+  position: absolute;
+  bottom: 20px;
+  left: 12px;
+  z-index: 1000;
+  background: var(--gritstone);
+  border: 1px solid rgba(9,12,11,.15);
+  border-top: 3px solid var(--capsaicin);
+  border-radius: 0 0 4px 4px;
+  padding: 12px 14px;
+  min-width: 170px;
+  box-shadow: 0 2px 10px rgba(9,12,11,.12);
+}
+#legend h4 {
+  font-family: 'Oswald', sans-serif;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--night);
+  margin-bottom: 7px;
+}
+.leg-gradient {
+  height: 10px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--cap-light), var(--capsaicin), var(--cap-dark));
+  margin-bottom: 4px;
+}
+.leg-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Work Sans', sans-serif;
+  font-size: 0.65rem;
+  color: #666;
+}
+.leg-no-cases {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  font-family: 'Work Sans', sans-serif;
+  font-size: 0.65rem;
+  color: #888;
+}
+.leg-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+
+/* Remove the browser's blue focus box on a clicked state (keeps the red outline) */
+.leaflet-interactive:focus,
+path.leaflet-interactive:focus,
+#map:focus,
+.leaflet-container:focus,
+.leaflet-container svg:focus,
+.leaflet-container a:focus { outline: none !important; }
+
+/* ── Tooltip ── */
+.leaflet-tooltip {
+  background: var(--night) !important;
+  border: 1px solid var(--capsaicin) !important;
+  color: var(--gritstone) !important;
+  border-radius: 3px !important;
+  font-family: 'Oswald', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 0.78rem !important;
+  letter-spacing: .5px !important;
+  text-transform: uppercase !important;
+  padding: 5px 10px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3) !important;
+}
+.leaflet-tooltip::before { border-top-color: var(--capsaicin) !important; }
+
+.tooltip-count {
+  font-family: 'Special Elite', serif;
+  font-size: 0.7rem;
+  color: var(--gold);
+  text-transform: none;
+  font-weight: normal;
+  letter-spacing: 0;
+  display: block;
+  margin-top: 1px;
+}
+
+/* ── Error ── */
+#geojson-error {
+  display: none;
+  position: absolute; top:50%; left:50%;
+  transform: translate(-50%,-50%);
+  background: #fff;
+  border: 2px solid var(--capsaicin);
+  border-radius: 4px;
+  padding: 20px 28px;
+  text-align: center;
+  z-index: 2000;
+  max-width: 340px;
+  font-family: 'Work Sans', sans-serif;
+  font-size: .85rem;
+}
+
+/* ── Sidebar welcome state ── */
+#sidebar-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px 28px;
+  text-align: center;
+}
+#sidebar-welcome .welcome-icon {
+  font-size: 2.8rem;
+  margin-bottom: 18px;
+  opacity: .35;
+}
+#sidebar-welcome h2 {
+  font-family: 'Oswald', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--night);
+  margin-bottom: 12px;
+}
+#sidebar-welcome p {
+  font-family: 'Work Sans', sans-serif;
+  font-size: .85rem;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+#sidebar-welcome .welcome-divider {
+  width: 40px;
+  height: 3px;
+  background: var(--capsaicin);
+  border-radius: 2px;
+  margin: 0 auto 18px;
+}
+#sidebar-welcome .welcome-stat {
+  font-family: 'Special Elite', serif;
+  font-size: .78rem;
+  color: var(--gold);
+  letter-spacing: .3px;
+}
+
+/* ── Mobile / narrow layout ─────────────────────────────── */
+@media (max-width: 760px) {
+  /* Header: keep name + total on one line, drop the decorative tagline */
+  header {
+    height: auto;
+    min-height: 48px;
+    padding: 8px 14px;
+    gap: 10px;
+  }
+  .header-name { font-size: 0.82rem; letter-spacing: .5px; line-height: 1.15; }
+  .header-tag  { display: none; }
+  #total-badge { font-size: 0.66rem; text-align: right; flex-shrink: 0; }
+
+  /* Stack the map above the sidebar instead of side-by-side */
+  #map-row { flex-direction: column; }
+  #map {
+    flex: none;
+    width: 100%;
+    height: 46vh;
+    min-height: 240px;
+  }
+  #sidebar {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    border-left: none;
+    border-top: 3px solid var(--capsaicin);
+    box-shadow: 0 -4px 16px rgba(9,12,11,.15);
+  }
+
+  /* Legend: pin to the top-right corner of the map so it never overlaps the panel */
+  #legend {
+    top: 12px;
+    right: 12px;
+    left: auto;
+    bottom: auto;
+    min-width: 140px;
+    padding: 9px 12px;
+  }
+
+  #sidebar-welcome { padding: 28px 22px; }
+  #sidebar-welcome .welcome-icon { font-size: 2.2rem; margin-bottom: 12px; }
+  #sidebar-welcome h2 { font-size: 1.1rem; }
+}
+
+@media (max-width: 420px) {
+  .header-name { font-size: 0.74rem; }
+  #total-badge { font-size: 0.6rem; }
+  #map { height: 42vh; }
+}
+</style>
+</head>
+
+<body>
+<div id="layout">
+  <header>
+    <div class="header-brand">
+      <span class="header-name">Pacific Legal Foundation</span>
+      <span class="header-tag">Active Cases Nationwide</span>
+    </div>
+    <div id="total-badge">Loading…</div>
+  </header>
+
+  <div id="map-row">
+    <div id="map"></div>
+
+    <div id="legend">
+      <h4>Cases per State</h4>
+      <div class="leg-gradient"></div>
+      <div class="leg-labels"><span>1</span><span id="leg-max">–</span></div>
+      <div class="leg-no-cases">
+        <div class="leg-swatch" style="background:#d4cfc6;border:1px solid #bbb"></div>
+        No active cases
+      </div>
+    </div>
+
+    <div id="geojson-error">
+      <strong>Internet connection required</strong><br><br>
+      This map loads US state boundaries from a CDN. Please ensure you're online.
+    </div>
+
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <div id="sidebar-state">Select a State</div>
+        <div id="sidebar-meta"></div>
+        <button id="close-btn" title="Close panel">✕</button>
+      </div>
+      <div id="sidebar-body">
+        <div id="sidebar-welcome">
+          <div class="welcome-icon">⚖️</div>
+          <h2>Click any state<br>to view cases</h2>
+          <div class="welcome-divider"></div>
+          <p>Pacific Legal Foundation is fighting for your rights in courts across America.</p>
+          <div class="welcome-stat" id="welcome-stat">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ── Embedded data ───────────────────────────────────────
+const STATE_DATA = {"Washington": {"count": 8, "cases": [{"title": "Joshua Diemert v. City of Seattle", "type": "E&O", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/seattle-racial-equity-workplace-training/", "description": "Seattle city employee sues over racially hostile mandatory workplace 'equity' training."}, {"title": "Rimmer v. City of Edmonds", "type": "PROP", "court": "Washington Court of Appeals", "url": "https://pacificlegal.org/case/rimmer-housing-forever-trees/", "description": "Homeowner challenges city's unconstitutional permit condition requiring him to maintain trees on his property forever."}, {"title": "Schult v. Washington State Veterinary Board", "type": "E&O", "court": "Washington Court of Appeals", "url": "https://pacificlegal.org/case/schultz-horse-teeth-floating-washington/", "description": "Trained horse floaters challenge Washington's law that prohibits non-veterinarians from performing equine dental care."}, {"title": "Oom Living v. City of Seattle", "type": "PROP", "court": "Washington Court of Appeals", "url": "https://pacificlegal.org/case/oom-seattle-unconstitutional-conditions-water-main/", "description": "Seattle property developer challenges the city's unconstitutional condition on a housing permit."}, {"title": "Foundation Against Intolerance & Racism v. Steve Walker, in h", "type": "E&O", "court": "U.S. District Court for the Western District of Washington", "url": "https://pacificlegal.org/case/fair-homebuyers-washington-discrimination/", "description": "Group challenges Washington state's down payment assistance program that limits eligibility by race."}, {"title": "Tim Eyman v. State of Washington", "type": "PROP", "court": "Court of Appeals of Washington - Division II", "url": "https://pacificlegal.org/case/tim-eyman-washington-excessive-fine/", "description": "Activist challenges excessive fines."}, {"title": "King Ranch v. WA Dept of Ecology", "type": "SOP", "court": "Grant County Superior Court", "url": "https://pacificlegal.org/case/king-ranch-jury-trial/", "description": "Ranchers fight for their constitutional right to a jury trial."}, {"title": "Ron Fode v. State of Washington, Department of Ecology, et al.", "type": "SOP", "court": "Washington Supreme Court", "url": "https://pacificlegal.org/case/ron-fode-v-washington-state-department-of-ecology/", "description": "A Washington farmer challenges the Department of Ecology's use of an unpublished internal deadline to deny his water rights transfer application and impose penalties."}]}, "California": {"count": 38, "cases": [{"title": "John Williams v. Alameda County", "type": "PROP", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/oakland-alameda-eviction-moratorium/", "description": "Landlords challenge Oakland and Alameda County's COVID-era eviction moratoriums as unconstitutional takings of property."}, {"title": "Palmer v. Bonta", "type": "E&O", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/palmer-v-bonta/", "description": "Nurse practitioners challenge California's law criminalizing their truthful use of the title 'Dr.'"}, {"title": "Khatibi and Do No Harm v. Medical Board of California", "type": "E&O", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/implicit-bias-cme-training-ca-ab241/", "description": "Doctors challenge California's mandate requiring physicians to include implicit bias training in continuing medical education courses."}, {"title": "Hadian v. California Coastal Commission", "type": "PROP", "court": "San Luis Obispo County Superior Court", "url": "https://pacificlegal.org/case/al-hadian-et-al-v-california-coastal-commission/", "description": "Property owners challenge the Coastal Commission's arbitrary reversal of county-approved building permits for their retirement homes."}, {"title": "John Doe v. U.S. Department of Justice", "type": "SOP", "court": "U.S. District for the Central District Court of California", "url": "https://pacificlegal.org/case/marine-veteran-fights-unconstitutional-registry-rule/", "description": "Marine veteran challenges the DOJ's retroactive rule requiring him to register as a sex offender."}, {"title": "B.B. v. Capistrano Unified School District, et al.", "type": "E&O", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/capistrano-blm-free-speech-discipline/", "description": "Elementary school student challenges a California school district's punishment for \"All lives matter\" drawing."}, {"title": "Shear Development Co. v. California Coastal Commission", "type": "PROP", "court": "Supreme Court of California", "url": "https://pacificlegal.org/case/shear-california-coastal-commission/", "description": "Developer challenges the California Coastal Commission's permit denial."}, {"title": "McBride v. Hawkins", "type": "E&O", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/case-mcbride-california-telehealth/", "description": "Doctor challenges the state's telehealth-only licensing requirement that bars out-of-state physicians from obtaining a standard California medical license."}, {"title": "Helgason and Sorenson v. Melby", "type": "E&O", "court": "San Diego County Superior Court", "url": "https://pacificlegal.org/case/california-nursing-mental-health-practitioners/", "description": "Two licensed psychiatric nurse practitioners challenge the California nursing board's interpretation of state law that blocks their path to independent practice."}, {"title": "Jason Murchison v. City of Newport Beach", "type": "E&O", "court": "U.S. District Court for the Central District of California", "url": "https://pacificlegal.org/case/murchison-newport-beach-surfing/", "description": "Surfer challenges Newport Beach's permit requirement for surf instructors."}, {"title": "Californians for Equal Rights v. Fresno Unified School Distr", "type": "E&O", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/cfer-fresno-discrimination/", "description": "Group challenges the Fresno Unified School District's racially discriminatory student support program."}, {"title": "Hooley v. UC Regents", "type": "E&O", "court": "U.S. District Court for the Northern District of California", "url": "https://pacificlegal.org/case/ucsf-minority-healthcare-scholarship-discrimination/", "description": "Student challenges UCSF's race-based healthcare scholarship program."}, {"title": "James Grill v. United States", "type": "PROP", "court": "U.S.District Court for the Eastern District of California", "url": "https://pacificlegal.org/case/grill-california-government-interference/", "description": "Man sues federal government for denying him access to his own property."}, {"title": "Maack v. Reynold", "type": "E&O", "court": "U.S. District Court for the Northern District of California", "url": "https://pacificlegal.org/case/maack-california-rideshare-discrimination/", "description": "Wyoming resident challenges California's law barring out-of-state residents from driving for rideshare apps as unconstitutional discrimination under the Interstate Commerce Clause."}, {"title": "Redondo Auto Spa, LLC v. California Labor Commissioner", "type": "SOP", "court": "Los Angeles County Superior Court", "url": "https://pacificlegal.org/case/ca-car-wash-labor-due-process/", "description": "Ccar wash owner challenges the Labor Commissioner's unconstitutional enforcement proceedings."}, {"title": "Wavehuggers v. Quintero", "type": "E&O", "court": "Southern District of California", "url": "https://pacificlegal.org/case/wavehuggers-surf-instruction/", "description": "San Diego surf instructor challenges California's licensing scheme for state beach concessions that grants monopoly access to favored businesses."}, {"title": "SnakeOut v. Bonham", "type": "E&O", "court": "U.S.District Court for the Eastern District of California", "url": "https://pacificlegal.org/case/snakeout-dogs-rattlesnake-aversion-training-california/", "description": "Trainer challenges the state's ban on commercializing native rattlesnakes."}, {"title": "Hoopes Vineyard v. County of Napa", "type": "E&O", "court": "Napa County Superior Court", "url": "https://pacificlegal.org/case/hoopes-vineyard-napa-county/", "description": "Napa Valley winery challenges the county's nearly $4 million in fines for routine business activity as unconstitutionally excessive."}, {"title": "Morgan v. Ito", "type": "ENR", "court": "U.S. District Court for the Central District of California", "url": "https://pacificlegal.org/case/morgan-ito-mineral-rights/", "description": "Property owners challenge state's sweeping ban on new oil drilling near populated areas."}, {"title": "Ruda v. San Luis Obispo", "type": "PROP", "court": "U.S. District Court for the Central District of California", "url": "https://pacificlegal.org/case/ruda-san-luis-obisbo-housing-exactions/", "description": "Homebuilders challenge San Luis Obispo's inclusionary zoning fee as an unconstitutional exaction."}, {"title": "Levy v. California Coastal Commission", "type": "PROP", "court": "San Diego County Superior Court", "url": "https://pacificlegal.org/case/levy-california-coastal-commission-due-process/", "description": "Property owner challenges the Coastal Commission's $2.4 million fine."}, {"title": "Californians for Equal Rights Foundation v. San Francisco", "type": "E&O", "court": "San Francisco County Superior Court", "url": "https://pacificlegal.org/case/cfer-san-francisco-human-rights-commission-reparations/", "description": "Group challenges the city's race-based reparations ordinance as unconstitutional."}, {"title": "Benedetti v. County of Marin", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/benedetti-v-county-of-marin-california/", "description": "California property owner challenges Marin County's land use restrictions as a taking of private property."}, {"title": "Stavrianoudakis v. U.S. Fish & Wildlife", "type": "PROP", "court": "U.S. District Court for the Eastern District of California", "url": "https://pacificlegal.org/case/peter-stavrianoudakis-et-al-v-united-states-department-of-fish-wildlife-and-california-department-of-fish-wildlife/", "description": "Falconer challenges state and federal regulations that restrict paid falconry demonstrations and authorize warrantless home searches of licensed falconers."}, {"title": "Meland v. Weber", "type": "E&O", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/creighton-meland-v-alex-padilla-secretary-of-state-of-california/", "description": "Attorney challenges the state's sex-based corporate board quota law as unconstitutional."}, {"title": "Anna Runkle v. Lea Tate", "type": "E&O", "court": "U.S. District Court for the Northern District of California", "url": "https://pacificlegal.org/case/runkle-crappy-childhood-fairy-life-coach-california/", "description": "A life coach challenges California's psychology licensing law as an unconstitutional restriction on free speech."}, {"title": "Mircea Voskerician and 12 Maywood LLC v. City of Menlo Park, California", "type": "PROP", "court": "Superior Court of the State of California, County of San Mateo", "url": "https://pacificlegal.org/case/voskerician-menlo-park-exaction-impact-fee/", "description": "A homebuilder challenges Menlo Park's $127,400 \"recreation in-lieu\" fee as an unconstitutional exaction on a property subdivision."}, {"title": "H&H Real Estate LLC v. City of Petaluma, CA", "type": "PROP", "court": "California Court of Appeal, First Appellate District", "url": "https://pacificlegal.org/case/hh-real-estate-sausage-slingers/", "description": "Sisters challenge the City of Petaluma's ban on parking and vehicle use on their property lot as an unconstitutional taking without compensation."}, {"title": "John and Marcella Seidensticker v. California Coastal Commission", "type": "PROP", "court": "Orange County Superior Court", "url": "https://pacificlegal.org/case/seidensticker-coastal-commission-unconstitutional-conditions/", "description": "California homeowners challenge the Coastal Commission's permit conditions that would require them to waive constitutional rights to rebuild their home."}, {"title": "Thomas Manning and Tower Bridge Property Management v. Rober", "type": "PROP", "court": "U.S. District Court for the Eastern District of California", "url": "https://pacificlegal.org/case/manning-warrantless-searches-section-8/", "description": "Property owner challenges California's mandate requiring landlords to participate in the Section 8 housing program, arguing it violates Fourth Amendment protections against warrantless searches."}, {"title": "Brinah Milstein et al. v. City of Los Angeles et al.", "type": "PROP", "court": "U.S. District Court for the Central District of California, Western Division", "url": "https://pacificlegal.org/case/milstein-los-angeles-marilyn-monroe-house/", "description": "Property owners challenge Los Angeles' historic designation of a former Marilyn Monroe residence as an unconstitutional taking without just compensation."}, {"title": "1517 Fund v. KC Mohseni, in his official capacity as Commissioner", "type": "E&O", "court": "U.S. District Court for the Eastern District of California", "url": "https://pacificlegal.org/case/1517-fund-california-venture-capital/", "description": "A venture capital firm challenges California's law requiring VC funds to report demographic data about founders, citing First Amendment and equal protection violations."}, {"title": "Majestic Realty Co. v. Salazar", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/salazar-majestic-california-compelled-speech/", "description": "Mall owners challenge California's requirement to allow activists to distribute materials on private shopping center property."}, {"title": "Paul Kelly, et al. v. California Baptist University", "type": "E&O", "court": "U.S. District Court for the Central District of California", "url": "https://pacificlegal.org/case/wrestlers-cbu-title-ix-policy-interpretation/", "description": "Male athletes challenge California Baptist University's elimination of men's teams, arguing the cuts violate Title IX by using gender quotas rather than expanding opportunity."}, {"title": "Erica Katherine Jimenez v. Dr. Erica Pan, Director of the California Department of Public Health", "type": "E&O", "court": "U.S. District Court for the Central District of California", "url": "https://pacificlegal.org/case/jimenez-california-bih-program-race/", "description": "A pregnant woman challenges California's Black Infant Health program for denying her maternal support services based on racial eligibility criteria."}, {"title": "1210 Cacique Street LLC v. City of Santa Barbara", "type": "PROP", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/1210-cacique-street-llc-v-city-of-santa-barbara-et-al/", "description": "Property owner challenges Santa Barbara's 2021 rent control ordinances as an unconstitutional taking that destroyed most of a mobilehome park's property value."}, {"title": "California Sea Otter Management Zone Petition", "type": "ENR", "court": "U.S. Fish & Wildlife Service", "url": "https://pacificlegal.org/case/delisting-petition-sea-otter-management-zone/", "description": "Petitions to restore fishermen protections in a sea otter management zone and delist the southern sea otter from the Endangered Species Act."}, {"title": "National Center for Public Policy Research v. Weber", "type": "E&O", "court": "U.S. District Court for the Eastern District of California", "url": "https://pacificlegal.org/case/ca-board-quota/", "description": "A challenge to California's AB 979, which mandates minimum representation of racial minorities and LGBTQ individuals on corporate boards."}]}, "Montana": {"count": 4, "cases": [{"title": "Noland v. Montana Public Service Commission", "type": "E&O", "court": "Supreme Court of Montana", "url": "https://pacificlegal.org/case/competitors-veto-montana-junk-hauling/", "description": "Junk-hauling entrepreneur challenges crony-capitalist law."}, {"title": "Montanans Against Irresponsible Densification v. State of Mo", "type": "PROP", "court": "Supreme Court of Montana", "url": "https://pacificlegal.org/case/maid-montana-miracle-housing/", "description": "Group challenges Montana's sweeping statewide housing reform law."}, {"title": "Nightingale College v. Sarah Spangler", "type": "E&O", "court": "U.S. District Court for the District of Montana", "url": "https://pacificlegal.org/case/nightingale-spangler-montana-nursing/", "description": "Nursing college challenges the state's protectionist restrictions on out-of-state programs."}, {"title": "Wilkins v. United States", "type": "PROP", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/wilkins-v-united-states-of-america/", "description": "Landowner challenges the Forest Service's attempt to convert a limited-use private road easement into public access."}]}, "Oregon": {"count": 3, "cases": [{"title": "Chinook Landing v. USA", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/chinook-fighting-implied-easements/", "description": "Property owner challenges the federal government's claim of an implied easement over private land."}, {"title": "KOGAP Enterprises v. Medford", "type": "PROP", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/pacificlegal-org-case-kogap-road-exaction-medford/", "description": "Developer challenges the City of Medford's demand to build a road extension as a condition of a commercial development permit as an unconstitutional exaction."}, {"title": "Modular Building Institute v. Christina Stephenson", "type": "E&O", "court": "U.S. District Court for the District of Oregon", "url": "https://pacificlegal.org/case/modular-building-institute-oregon-dormant-commerce/", "description": "The Modular Building Institute challenges Oregon's 2025 law extending wage requirements to off-site fabrication work performed outside the state."}]}, "Massachusetts": {"count": 4, "cases": [{"title": "DiPietro v. Town of Bolton, Massachusetts", "type": "PROP", "court": "U.S. District Court for the District of Massachusetts", "url": "https://pacificlegal.org/case/dipietro-v-town-of-bolton-massachusetts/", "description": "Alpaca farmer challenges Massachusetts' home equity theft law that allowed the town to take his $370,000 property over a $60,000 tax debt."}, {"title": "Josh Sabey and Sarah Perkins v. City of Waltham", "type": "PROP", "court": "U.S. District Court for the District of Massachusetts", "url": "https://pacificlegal.org/case/sabey-warrantless-search-seizure/", "description": "Family sues city officials who unlawfully seized their children."}, {"title": "Boston Parent Coalition v. Boston School Committee", "type": "E&O", "court": "U.S. District Court for the District of Massachusetts", "url": "https://pacificlegal.org/case/boston-parents-proxy-discrimination-exam-schools/", "description": "Parents challenge the school committee's continued use of race-based admissions policies."}, {"title": "Haney v. Town of Mashpee, MA", "type": "PROP", "court": "U.S. District Court for the District of Massachusetts", "url": "https://pacificlegal.org/case/haney-v-town-of-mashpee-massachusetts/", "description": "Homeowner challenges the Town of Mashpee's demand for unconstitutional condition on a residential building permit."}]}, "Arkansas": {"count": 2, "cases": [{"title": "Walmsley v. Federal Trade Commission", "type": "SOP", "court": "Eighth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/horse-racing-regulations-ftc/", "description": "Horseracing enthusiasts challenge the constitutionality of the Horse Industry Safety Act's federal regulatory regime."}, {"title": "BAS, LLC v. Tommy Land", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/bas-llc-arkansas-takings-clause/", "description": "Brothers challenge the state's claim of sovereign immunity after it took their property."}]}, "Kansas": {"count": 1, "cases": [{"title": "HomeRoom v. City of Shawnee", "type": "PROP", "court": "Tenth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/shawnee-co-living-ban-housing/", "description": "Property management company challenges Shawnee's ban on co-living arrangements among four or more unrelated people."}]}, "Oklahoma": {"count": 1, "cases": [{"title": "Domestic Energy Producers Alliance v. Securities and Exchange", "type": "SOP", "court": "Eighth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/depa-ghg-rule-climate-change-sec/", "description": "Energy producers challenge the SEC's rule requiring publicly traded companies to disclose greenhouse gas emissions."}]}, "Texas": {"count": 8, "cases": [{"title": "Jeffrey Moats v. National Credit Union Administration, et al.", "type": "SOP", "court": "Fifth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/ncua-federal-lawsuit-alj-separation-of-powers/", "description": "Former credit union CEO challenges the NCUA's use of in-house tribunals instead of federal courts."}, {"title": "Landscape Consultants v. City of Houston, Texas", "type": "E&O", "court": "U.S. District Court for the Southern District of Texas", "url": "https://pacificlegal.org/case/landscape-houston-contracting-race/", "description": "Family landscaping business challenges Houston's race-based contracting preferences as unconstitutional."}, {"title": "Hiran Management v. NLRB", "type": "SOP", "court": "Fifth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/hiran-nlrb-tribunal-aljs/", "description": "Restaurant challenges the NLRB's unconstitutional in-house administrative tribunals."}, {"title": "Landscape Consultants v. Harris County", "type": "E&O", "court": "U.S. District Court for the Southern District of Texas", "url": "https://pacificlegal.org/case/landscape-harris-county-contracting-race-mwbe/", "description": "Houston contractor challenges Harris County's race-based contracting program that awards government contracts based on the race and sex of business owners."}, {"title": "Flowers Title Companies v. Bessent", "type": "SOP", "court": "U.S. District Court for the Eastern District of Texas", "url": "https://pacificlegal.org/case/fincen-bank-secrecy-act-lawsuit/", "description": "Title company challenges the Bank Secrecy Act's reporting requirements."}, {"title": "George Anibowei v. Pam Bondi", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/anibowei-border-phone-searches-fourth-amendment/", "description": "A naturalized U.S. citizen challenges warrantless cell phone searches conducted by federal agents at the border without probable cause or judicial authorization."}, {"title": "Sandy McCoy and Texas Nurse Practitioners v. Texas Medical Board", "type": "E&O", "court": "District Court for Travis County, Texas", "url": "https://pacificlegal.org/case/mccoy-texas-nurse-practitioners-full-practice-authority/", "description": "Texas nurse practitioners challenge state law requiring them to obtain physician permission and pay fees to practice their licensed profession."}, {"title": "Michael Ramirez v. City of Texas City, Texas", "type": "PROP", "court": "U.S. Court of Appeals for the Fifth Circuit", "url": "https://pacificlegal.org/case/ramirez-texas-demolition-due-process/", "description": "After the City of Texas City demolished his property without proper warning, Michael Ramirez challenges the destruction as a violation of his right to due process."}]}, "Mississippi": {"count": 1, "cases": [{"title": "Bell v. Lutnick", "type": "SOP", "court": "Fifth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/fishing-regulation-separation-of-powers/", "description": "Commercial fishers challenge NOAA's unconstitutional fishing regulations imposed without proper congressional authorization."}]}, "Rhode Island": {"count": 4, "cases": [{"title": "Stilts v. State of Rhode Island", "type": "PROP", "court": "Supreme Court of Rhode Island", "url": "https://pacificlegal.org/case/stilts-rhode-island-beach-seizure/", "description": "Homeowner challenges state law that moved the public beach boundary inland onto private property without compensation."}, {"title": "SCLS Realty v. Town of Johnston", "type": "PROP", "court": "U.S. District Court for the District of Rhode Island", "url": "https://pacificlegal.org/case/eminent-domain-property-rights-ri/", "description": "Property owners challenge the Town of Johnston's eminent domain taking of their property."}, {"title": "Stilts v. Rhode Island Coastal Resources Management", "type": "PROP", "court": "Rhode Island Superior Court", "url": "https://pacificlegal.org/case/stilts-rhode-island-beach-seizure/", "description": "Rhode Island property owner challenges coastal agency's unconstitutional conditions for a maintenance permit."}, {"title": "Bessinger v. Larkin", "type": "E&O", "court": "U.S. District Court for the District of Rhode Island", "url": "https://pacificlegal.org/case/bessinger-rhode-island-public-board/", "description": "Teacher challenges the state's race-based requirement for membership on a public health advisory board."}]}, "North Carolina": {"count": 4, "cases": [{"title": "Black v. FINRA", "type": "SOP", "court": "Fourth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/black-finra-alj/", "description": "Investment firm owner challenges FINRA's unconstitutional in-house tribunal that fined and banned him from the securities industry."}, {"title": "United States v. Valentine", "type": "ENR", "court": "Eastern District Court of North Carolina", "url": "https://pacificlegal.org/case/valentine-clean-water-act-sackett/", "description": "Family challenges the Army Corps' abuse of the Clean Water Act."}, {"title": "Ami Hill v. Town of Kill Devil Hills, NC", "type": "E&O", "court": "North Carolina Court of Appeals", "url": "https://pacificlegal.org/case/nc-art-bus-outer-banks/", "description": "Artist challenges the town's ban on her mobile art bus as an unconstitutional restriction on First Amendment-protected speech."}, {"title": "Robert White v. EPA", "type": "ENR", "court": "Eastern District Court of North Carolina", "url": "https://pacificlegal.org/case/white-clean-water-act-sackett/", "description": "Property owner challenges EPA and Army Corps regulations that wrongly designate his land as protected wetlands."}]}, "Arizona": {"count": 3, "cases": [{"title": "Grant Krueger v. Arizona Department of Agriculture", "type": "SOP", "court": "Maricopa County Superior Court", "url": "https://pacificlegal.org/case/krueger-az-cage-free-egg-rule/", "description": "Restaurant owner challenges Arizona's illegal agency rulemaking on cage-free egg requirements."}, {"title": "Chris Heaton v. Biden", "type": "ENR", "court": "U.S. District Court of Arizona", "url": "https://pacificlegal.org/case/antiquities-act-grand-canyon/", "description": "Rancher challenges President Biden's Ancestral Footprints National Monument proclamation."}, {"title": "EFG America v. AZ Corporation Commission", "type": "SOP", "court": "Arizona Supreme Court", "url": "https://pacificlegal.org/case/az-jury-trials-seventh-amendment/", "description": "Arizona business challenges the Arizona Corporation Commission's enforcement proceedings as unconstitutional."}]}, "New Jersey": {"count": 3, "cases": [{"title": "MacDonald v. Sabando", "type": "E&O", "court": "Third Circuit Court of Appeals", "url": "https://pacificlegal.org/case/new-jersey-telehealth-pediatric-cancer/", "description": "Doctors challenge New Jersey's telehealth restrictions that prevent out-of-state physicians from treating patients remotely."}, {"title": "Johnson v. City of East Orange, NJ", "type": "PROP", "court": "New Jersey Superior Court, Appellate Division", "url": "https://pacificlegal.org/case/nj-home-equity-theft/", "description": "Woman challenges city's theft of equity in tax foreclosure."}, {"title": "Earle Asphalt Co. v. New Jersey Turnpike Authority", "type": "E&O", "court": "U.S. District Court for the District of New Jersey", "url": "https://pacificlegal.org/case/earle-asphalt-new-jersey-race-based-contracting/", "description": "Earle Asphalt challenges New Jersey's race- and sex-based hiring quotas for public construction projects as unconstitutional."}]}, "District of Columbia": {"count": 8, "cases": [{"title": "NOAA v. Michele My Belle", "type": "SOP", "court": "Before the National Ocean and Atmospheric Administration", "url": "https://pacificlegal.org/case/noaa-speed-limit-non-delegation/", "description": "Boat owners challenge NOAA's whale speed limit rules as an unconstitutional delegation of legislative power."}, {"title": "KC Transport v. Secretary of Labor", "type": "SOP", "court": "D.C. Circuit Court of Appeals", "url": "https://pacificlegal.org/case/kc-transport-scotus-chevron-mining-safety-act/", "description": "Family trucking company challenges MSHA's overbroad claim that its off-mine repair facility is a 'mine' subject to federal regulation."}, {"title": "Clear Sky Holdings v. Estate of Gaston Powell", "type": "PROP", "court": "District of Columbia Superior Court", "url": "https://pacificlegal.org/case/powell-dc-home-equity-theft/", "description": "Estate challenges Washington D.C.'s home equity theft law."}, {"title": "Princess Awesome v. United States Customs", "type": "SOP", "court": "U.S. Court of International Trade", "url": "https://pacificlegal.org/case/tariffs-lawsuit/", "description": "Seveal companies challenge the Trump administration's broad tariff authority under IEEPA."}, {"title": "Bikeyah v. Biden", "type": "ENR", "court": "District Court for the District of Columbia", "url": "https://pacificlegal.org/case/bears-ears-national-monument-litigation/", "description": "Recreationists, ranchers, and sportsmen challenge the scope of the Bears Ears National Monument designation."}, {"title": "American Public Health Association v. EPA", "type": "ENR", "court": "District Court for the District of Columbia", "url": "https://pacificlegal.org/case/domestic-energy-producers-alliance-epa-endangerment-finding/", "description": "Energy producers urge courts to affirm the repeal of the EPA’s 2009 greenhouse gas endangerment finding."}, {"title": "Conservation Law Foundation v. Trump", "type": "ENR", "court": "U.S. District Court for the District of Columbia", "url": "https://pacificlegal.org/case/green-challenge-fishing-ban-antiquities-act/", "description": "New England fishermen challenge the legality of a presidential fishing ban across Atlantic Ocean waters under the Antiquities Act."}, {"title": "Atlantic Veal and Lamb, LLC v. National Labor Relations Board", "type": "SOP", "court": "D.C. Circuit Court of Appeals", "url": "https://pacificlegal.org/case/nlrb-tribunals-due-process/", "description": "Atlantic Veal challenges the NLRB's authority to conduct in-house prosecutions and adjudications, arguing the agency violates constitutional due process rights."}]}, "Florida": {"count": 11, "cases": [{"title": "Eubanks v. NOAA", "type": "SOP", "court": "Middle District of Florida", "url": "https://pacificlegal.org/case/noaa-speed-limit-non-delegation/", "description": "Florida boat owner challenges NOAA's whale speed limit rules as an unconstitutional delegation of legislative power."}, {"title": "Russo v. Raimondo", "type": "SOP", "court": "Eleventh Circuit Court of Appeals", "url": "https://pacificlegal.org/case/russo-fishery-councils-appointments-clause/", "description": "Commercial fishermen challenge the unconstitutional appointment of fishing council members who set federal catch limits without proper presidential or congressional oversight."}, {"title": "Colosi v. Charlotte County", "type": "ENR", "court": "Middle District of Florida", "url": "https://pacificlegal.org/case/colosi-scrub-jay-exactions/", "description": "Landowner challenges Charlotte County's demand for a $400,000 scrub-jay mitigation payment as an unconstitutional exaction on his building permit."}, {"title": "Sedigheh Zolfaghari v. U.S. Army Corps of Engineers", "type": "ENR", "court": "U.S. District Court for the Southern District of Florida", "url": "https://pacificlegal.org/case/sackett-clean-water-act-army-corps-florida/", "description": "Property owner challenges the Army Corps of Engineers' wetland designation on her land."}, {"title": "DJB Rentals v. Largo", "type": "PROP", "court": "Middle District of Florida", "url": "https://pacificlegal.org/case/djb-rentals-excessive-fines-largo-florida/", "description": "Property owner challenges the City of Largo's imposition of excessive fines."}, {"title": "Dr. Sean Wells v. Kennedy", "type": "E&O", "court": "Middle District of Florida", "url": "https://pacificlegal.org/case/cms-medicare-physical-therapist-discrimination/", "description": "Physical therapist challenges Medicare's arbitrary restriction on physical therapists serving patients privately."}, {"title": "Carol G. Edwards v. City of Altamonte Springs", "type": "PROP", "court": "Middle District of Florida", "url": "https://pacificlegal.org/case/carol-edwards-florida-excessive-fines/", "description": "Retiree challenges excessive fines for \"unpermitted\" dock."}, {"title": "Daniels v. Town of Palm Beach", "type": "PROP", "court": "U.S. District Court for the Southern District of Florida", "url": "https://pacificlegal.org/case/daniels-palm-beach-taking/", "description": "Homeowner sues the Town of Palm Beach for declaring a public easement over his private sandy beach."}, {"title": "Shands v. City of Marathon", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/shands-v-city-of-marathon/", "description": "Family challenges the City of Marathon's regulatory taking of their island property."}, {"title": "Jammi Wilson v. USDA", "type": "SOP", "court": "U.S. District Court for the Northern District of Florida", "url": "https://pacificlegal.org/case/wilson-usda-jury-trial/", "description": "The Wilsons challenge the constitutionality of the USDA's in-house adjudication process, arguing it violates their right to a jury trial and neutral judge."}, {"title": "Philip Serpe v. FTC", "type": "SOP", "court": "U.S. District Court for the Southern District of Florida", "url": "https://pacificlegal.org/case/philip-serpe-v-federal-trade-commission/", "description": "A racehorse trainer challenges the constitutionality of a private regulatory body's authority to prosecute and adjudicate doping allegations without independent judicial oversight."}]}, "Alaska": {"count": 4, "cases": [{"title": "State of Alaska/Inside Passage Electric Cooperative v. U.S. D", "type": "SOP", "court": "U.S. District Court for the District of Alaska", "url": "https://pacificlegal.org/case/alaska-roadless-rule-usda/", "description": "Nonprofit fights USDA’s roadblock to new green energy in rural Alaska"}, {"title": "Iliamna Natives Limited v. EPA", "type": "ENR", "court": "U.S. District Court for the District of Alaska", "url": "https://pacificlegal.org/case/iliamna-epa-pebble-mine/", "description": "Community challenges the EPA's unprecedented use of Clean Water Act veto authority to preemptively block the Pebble Mine before any permit application was filed."}, {"title": "Alaska Forest Association v. Rollins", "type": "ENR", "court": "U.S. District Court for the District of Alaska", "url": "https://pacificlegal.org/case/alaska-tongass-timber-lawsuit-usda/", "description": "Timber companies challenge the Forest Service's restrictions on harvesting timber."}, {"title": "Slayden Plumbing v. U.S. Department of Defense", "type": "SOP", "court": "U.S. District Court for the District of Alaska", "url": "https://pacificlegal.org/case/slayden-plumbing-pla-mandate-nondelegation/", "description": "Plumbing company challenges federal requirement that federal contractors be unionized."}]}, "Pennsylvania": {"count": 4, "cases": [{"title": "Peters Brothers Inc. et al. v. PA Department of Environmental", "type": "SOP", "court": "Pennsylvania Supreme Court", "url": "https://pacificlegal.org/case/pa-trucking-diesel-carb-standards/", "description": "Trucking company challenges the state's unconstitutional outsourcing of emissions rulemaking to California regulators."}, {"title": "Urban Artifact v. Col. Christopher Paris", "type": "E&O", "court": "District Court for the Middle District of Pennsylvania", "url": "https://pacificlegal.org/case/urban-artifact-pennsylvania-breweries/", "description": "Craft breweries challenge the state's protectionist alcohol distribution laws."}, {"title": "H.R. Ewell v. EPA", "type": "SOP", "court": "Ninth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/ewell-clean-air-act-california-epa/", "description": "Trucking company challenges the EPA's approval of California's Clean Air Act waiver as an unlawful delegation of federal regulatory authority to a single state."}, {"title": "Elliot Goldberg v. Pennsylvania Department of Banking", "type": "SOP", "court": "Pennsylvania Supreme Court", "url": "https://pacificlegal.org/case/goldberg-v-pennsylvania-department-of-banking-and-securities/", "description": "Financial professional challenges the state Banking Department's use of in-house proceedings to impose nearly $1 million in civil penalties without a jury trial."}]}, "Tennessee": {"count": 5, "cases": [{"title": "Gregory Ringenberg v. United States", "type": "PROP", "court": "U.S. District Court for the Eastern District of Tennessee", "url": "https://pacificlegal.org/case/ringenberg-quiet-title-forest-service-easement/", "description": "Doctor challenges an invalid easement claim by the Forest Service."}, {"title": "SW Nashville EB Owner v. Metro Government of Nashville", "type": "PROP", "court": "Sixth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/sw-nashville-takings-clause-due-process/", "description": "Developer challenges Nashville's hold on building projects."}, {"title": "Tennessee Riverkeeper, Inc. v. City of Springfield, TN", "type": "ENR", "court": "U.S. District Court for the Middle District of Tennessee", "url": "https://pacificlegal.org/case/springfield-tennessee-riverkeeper-nondelegation/", "description": "Springfield challenges the Clean Water Act's \"citizen suit\" provision as an unconstitutional delegation of executive power to private entities."}, {"title": "Catherine Gatzimos v. Howard Lutnick", "type": "SOP", "court": "U.S. District Court for the Middle District of Tennessee", "url": "https://pacificlegal.org/case/catherine-gatzimos-v-administrator-of-the-national-oceanic-and-atmospheric-administration/", "description": "Catherine Gatzimos challenges a federal dolphin-swim ban, arguing an unconstitutionally appointed official issued the rule."}, {"title": "Do No Harm v. William Lee", "type": "E&O", "court": "U.S. District Court for the Middle District of Tennessee", "url": "https://pacificlegal.org/case/do-no-harm-tn-race-quota-boards/", "description": "Do No Harm challenges Tennessee's requirement that racial minorities be appointed to the state podiatry board."}]}, "Alabama": {"count": 1, "cases": [{"title": "Skipper v. USFWS", "type": "ENR", "court": "U.S. District Court for the Southern District of Alabama", "url": "https://pacificlegal.org/case/skipper-v-u-s-fish-and-wildlife-service/", "description": "Alabama timber family challenges Fish and Wildlife Service's critical habitat designation for the black pinesnake on their land."}]}, "Louisiana": {"count": 3, "cases": [{"title": "Ursula Newell-Davis v. Greenstein", "type": "E&O", "court": "Louisiana Nineteenth Judicial District Court", "url": "https://pacificlegal.org/case/newell-davis-louisiana-fnr-law/", "description": "Social worker challenges Louisiana's anticompetitive Facility Need Review law that blocks her from opening a home care agency."}, {"title": "Do No Harm v. Landry", "type": "E&O", "court": "Fifth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/do-no-harm-la-race-medical-board-quota/", "description": "Group challenges Louisiana's law mandating racial and gender quotas for membership on its medical licensing board."}, {"title": "Amy Q. Cao v. Louisiana Board of Cosmetology", "type": "SOP", "court": "Louisiana Nineteenth Judicial District Court", "url": "https://pacificlegal.org/case/cao-louisiana-cosmetology-licensing-adjudication/", "description": "Cosmetologist challenges Louisiana's unconstitutional licensing tribunal that acts as investigator, prosecutor, and judge in a single agency."}]}, "South Dakota": {"count": 1, "cases": [{"title": "Foster v. USDA", "type": "ENR", "court": "U.S. District Court for the District of South Dakota", "url": "https://pacificlegal.org/case/south-dakota-farming/", "description": "Farmer challenges USDA's refusal to review its wetland designation of a seasonal mud puddle on his farm."}]}, "New York": {"count": 8, "cases": [{"title": "Yiatin Chu v. N.Y. State Education Dept.", "type": "E&O", "court": "U.S. Northern District Court of New York", "url": "https://pacificlegal.org/case/ny-step-grant-chu-discrimination/", "description": "Doctor challenges the state's STEP grant program for excluding Asian and white students from eligibility based on race."}, {"title": "Frank Green v. National Oceanic and Atmospheric Administratio", "type": "ENR", "court": "U.S. District Court for the Eastern District of New York", "url": "https://pacificlegal.org/case/green-antiquities-act-noaa/", "description": "Commercial fishermen challenge Antiquities Act designation of underwater \"monument.\""}, {"title": "Coalition for Fairness in SoHo and NoHo v. City of New York", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/soho-noho-nyc-arts-fees/", "description": "Property owners challenge NYC's demand for millions in fees as conditions of rezoning in the SoHo and NoHo neighborhoods."}, {"title": "CACGNY v. Mamdani", "type": "E&O", "court": "U.S. Southern District Court of New York", "url": "https://pacificlegal.org/case/christa-mcauliffe-pto-v-de-blasio/", "description": "Chinese American organization challenges New York City's race-based Discovery program expansion that reduced Asian student admission at elite specialized high schools."}, {"title": "Tedford's Tenancy LLC v. City of New York", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/ciner-tedfords-tenancy-new-york-rent-control/", "description": "Retirees challenge New York's Rent Stabilization Law as an unconstitutional taking of private property without just compensation under the Fifth Amendment."}, {"title": "Yi Fang Chen v. Mamdani", "type": "E&O", "court": "U.S. District Court for the Southern District of New York", "url": "https://pacificlegal.org/case/chen-nyc-specialized-high-schools/", "description": "A Chinese American mother challenges New York City's race-based admissions policy for specialized high schools as violating equal protection rights."}, {"title": "Rosewood Care, LLC d/b/a Rosewood Rehabilitation and Nursing and 1199 SEIU United Healthcare Workers East", "type": "SOP", "court": "National Labor Relations Board", "url": "https://pacificlegal.org/case/rosewood-care-nursing-seventh-amendment-jury-trial/", "description": "A nursing facility challenges the NLRB's administrative tribunal structure as violating the Seventh Amendment right to a jury trial and separation of powers principles."}, {"title": "Thomas and Madison Woodward, III v. Amanda Lefton", "type": "ENR", "court": "U.S. District Court for the Northern District of New York", "url": "https://pacificlegal.org/case/woodward-new-york-fracking-ban/", "description": "Property owners challenge New York's hydraulic fracking ban as an unconstitutional taking under the Fifth Amendment."}]}, "Iowa": {"count": 1, "cases": [{"title": "CTM Holdings v. USDA", "type": "ENR", "court": "U.S. District Court for the Northern District of Iowa", "url": "https://pacificlegal.org/case/ctm-swampbuster-usda-sackett/", "description": "Farmer challenges the USDA's Swampbuster wetland designation on his farmland."}]}, "Maryland": {"count": 3, "cases": [{"title": "3484, Inc. & 3486, Inc. v. NLRB", "type": "SOP", "court": "Tenth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/movie-productions-nlrb-tribunals-due-process/", "description": "Movie production companies challenge the NLRB's use of in-house administrative tribunals."}, {"title": "Association for Education Fairness v. Montgomery County Board", "type": "E&O", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/afef-v-montgomery-county-public-schools/", "description": "Parents challenge Montgomery County Public Schools' changed admissions criteria for gifted magnet programs."}, {"title": "Garnell Walls v. Prince George's County and Melinda Bowling", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/walls-maryland-takings-access-to-court/", "description": "Property owner challenges the Fourth Circuit's requirement that he petition the county legislature before suing for an alleged Fifth Amendment takings violation."}]}, "New Mexico": {"count": 1, "cases": [{"title": "Sanchez v. Torrez", "type": "PROP", "court": "Tenth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/property-rights-trespassing-new-mexico/", "description": "Property owners challenge a state law that grants trespassers the right to cross private land to access public lands without compensation."}]}, "Missouri": {"count": 2, "cases": [{"title": "American Tripoli v. Labor Secretary", "type": "SOP", "court": "Eighth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/american-tripoli-mine-labor-jury-trials/", "description": "Mining company challenges the MSHA's use of in-house administrative tribunals."}, {"title": "Markes v. Bailey", "type": "E&O", "court": "19th Judicial Circuit Cole County", "url": "https://pacificlegal.org/case/missouri-nurse-practitioners-cpa/", "description": "Nurse practitioner challenges the state's collaborative practice agreement law."}]}, "Nevada": {"count": 2, "cases": [{"title": "Derek Eisenberg v. Sanchez", "type": "E&O", "court": "U.S. District Court for the District of Nevada", "url": "https://pacificlegal.org/case/eisenberg-real-estate-office-nevada/", "description": "Real estate broker challenges Nevada's requirement that brokers have an in-state office."}, {"title": "Jeffrey Hagen v. Nevada St. Bd. Architecture", "type": "SOP", "court": "Nevada Supreme Court", "url": "https://pacificlegal.org/case/hagen-jaha-nevada-board-architecture/", "description": "Architect challenges Nevada's Architecture Board for denying him a jury trial."}]}, "Ohio": {"count": 1, "cases": [{"title": "Nourish Our Neighbors v. City of Dayton", "type": "E&O", "court": "U.S. District Court for the Southern District of Ohio", "url": "https://pacificlegal.org/case/dayton-charity-nourish-our-neighbors/", "description": "Charity challenges Dayton's restrictions on organizations that feed the hungry in public spaces."}]}, "West Virginia": {"count": 3, "cases": [{"title": "Foster Farms v. EPA", "type": "ENR", "court": "Fourth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/foster-farms-clean-water-act-sackett-epa/", "description": "Farmer challenges the EPA's post-Sackett attempt to maintain Clean Water Act jurisdiction over farmland."}, {"title": "Foundation Against Intolerance & Racism v. West Virginia", "type": "E&O", "court": "US District Court for Northern West Virginia", "url": "https://pacificlegal.org/case/fair-west-virginia-bar-discrimination/", "description": "Group challenges the West Virginia State Bar's racially discriminatory elections for its Board of Governors."}, {"title": "West Virginia Rivers Coalition, et al. v. Amsted Graphite Materials, LLC", "type": "ENR", "court": "U.S. District Court for the Northern District of West Virginia", "url": "https://pacificlegal.org/case/amsted-graphite-west-virginia-nondelegation/", "description": "Amsted Graphite Materials challenges the Clean Water Act's citizen suit provision as an unconstitutional delegation of executive power to private entities."}]}, "Colorado": {"count": 2, "cases": [{"title": "redT Homes v. City and County of Denver, Colorado", "type": "PROP", "court": "U.S. District Court for the District of Colorado", "url": "https://pacificlegal.org/case/redt-denver-inclusionary-zoning/", "description": "Denver homebuilder challenges the city's inclusionary zoning fee."}, {"title": "Choice Advisors v. United States", "type": "SOP", "court": "Tenth Circuit Court of Appeals", "url": "https://pacificlegal.org/case/choice-advisors-omeara-sec-jury-trial/", "description": "Financial advisory firm challenges the SEC's use of in-house administrative proceedings."}]}, "Michigan": {"count": 2, "cases": [{"title": "Wildern v. Department of Licensing", "type": "E&O", "court": "Michigan Court of Claims", "url": "https://pacificlegal.org/case/michigan-lara-implicit-bias-healthcare/", "description": "Doctor challenges the state's mandatory implicit bias training."}, {"title": "Pung v. Isabella County", "type": "PROP", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/pung-isabella-county-home-equity-theft/", "description": "Family challenges Isabella County's home equity theft scheme before the U.S. Supreme Court."}]}, "Wyoming": {"count": 2, "cases": [{"title": "Scharp v. Teton County", "type": "PROP", "court": "U.S. District Court of Wyoming", "url": "https://pacificlegal.org/case/scharp-wy-housing-permit-fee-extortion/", "description": "Homebuilders challenge Teton County's workforce housing fee."}, {"title": "United States v. Tate Pulliam", "type": "SOP", "court": "U.S. District Court for the District of Wyoming", "url": "https://pacificlegal.org/case/pulliam-wyoming-yellowstone-national-park/", "description": "An outdoorsman challenges criminal charges from a Yellowstone visit, arguing park superintendents lack constitutional authority to create and enforce criminal regulations."}]}, "Delaware": {"count": 1, "cases": [{"title": "Nested Bean v. Consumer Product Safety Commission", "type": "SOP", "court": "U.S. District Court for the District of Delaware", "url": "https://pacificlegal.org/case/nested-bean-consumer-product-safety-commission/", "description": "Infant sleep product company challenges the CPSC's use of an informal letter to effectively destroy its business."}]}, "Nebraska": {"count": 3, "cases": [{"title": "Integrated Life Choices v. Nebraska Department of Health", "type": "SOP", "court": "Lancaster County Court, District 3, Nebraska", "url": "https://pacificlegal.org/case/ilc-nebraska-training-mandate/", "description": "Disability services provider challenges the state DHHS's unlawful mandate requiring providers to adopt a single proprietary training program."}, {"title": "Emily Tvrdy and Amanda Musilek v. Hilgers", "type": "E&O", "court": "U.S. District Court for the District of Nebraska", "url": "https://pacificlegal.org/case/tvrdy-musilek-birth-freedom-religion-nebraska/", "description": "Pregnant mothers challenge Nebraska's ban on midwife-assisted home births as violating the Fourteenth Amendment and religious freedom protections."}, {"title": "Kate Ternus v. Hilgers", "type": "E&O", "court": "U.S. District Court for the District of Nebraska", "url": "https://pacificlegal.org/case/ternus-hilgers-birth-freedom-nebraska/", "description": "A Nebraska mother challenges the state's ban on certified nurse midwife-assisted home births as unconstitutional."}]}, "Georgia": {"count": 1, "cases": [{"title": "Nightingale College v. Maceo Tanner", "type": "E&O", "court": "U.S. District Court for the Northern District of Georgia", "url": "https://pacificlegal.org/case/nightingale-tanner-georgia-nursing/", "description": "Nursing college challenges the state's protectionist restrictions on out-of-state programs."}]}, "Vermont": {"count": 1, "cases": [{"title": "Chavarria v. Noem", "type": "PROP", "court": "District Court for the District of Columbia", "url": "https://pacificlegal.org/case/chavarria-border-searches-fourth-amendment/", "description": "School superintendent challenges the warrantless search of his electronic devices at the border."}]}, "Maine": {"count": 1, "cases": [{"title": "Thompson v. Wilson", "type": "ENR", "court": "U.S. Supreme Court", "url": "https://pacificlegal.org/case/thompson-maine-lobstermen-gps-tracking/", "description": "Lobsterman sues over unconstitutional surveillance."}]}, "Hawaii": {"count": 4, "cases": [{"title": "Linda Twitchell and David Kalahiki v. Kali Watson", "type": "E&O", "court": "U.S. District Court for the District of Hawaii", "url": "https://pacificlegal.org/case/kalahiki-twitchell-hawaii-blood-quantum-eviction/", "description": "Hawaii residents challenge a state agency's ancestry-based eviction policy as violating equal protection rights."}, {"title": "Sandra May v. City & County of Honolulu, et al.", "type": "PROP", "court": "U.S. District Court for the District of Hawaii", "url": "https://pacificlegal.org/case/sandra-may-excessive-fines-honolulu/", "description": "A Honolulu homeowner challenges the city's fines for inadvertently advertising short-term rentals as violating the Eighth Amendment's excessive fines clause."}, {"title": "Eric Ryan v. Kali Watson", "type": "E&O", "court": "U.S. District Court for the District of Hawaii", "url": "https://pacificlegal.org/case/ryan-watson-hawaii-racial-requirement/", "description": "A Hawaii resident challenges the state's blood quantum requirement that restricts access to homestead leases based on Native Hawaiian ancestry."}, {"title": "State of Hawaii v. Don Williams", "type": "PROP", "court": "Intermediate Court of Appeals of the State of Hawaii", "url": "https://pacificlegal.org/case/williams-hawaii-eminent-domain/", "description": "Hawaii property owner Don Williams defends a trial court judgment awarding him $7 million in just compensation after the state seized his land through eminent domain."}]}, "Idaho": {"count": 1, "cases": [{"title": "Willmore Lumber Company, Inc. v. United States Department of Labor, et al.", "type": "SOP", "court": "U.S. District Court for the District of Idaho", "url": "https://pacificlegal.org/case/willmore-lumber-seventh-amendment-jury-trial/", "description": "Willmore Lumber challenges OSHA's in-house enforcement process, arguing it violates the constitutional right to a neutral judge and jury."}]}, "Illinois": {"count": 1, "cases": [{"title": "Garrett Rhodes v. Illinois Secretary of State", "type": "SOP", "court": "Fourth District Appellate Court of Illinois", "url": "https://pacificlegal.org/case/rhodes-jury-trial-seventh-amendment/", "description": "Garrett Rhodes challenges Illinois' denial of a jury trial after the Securities Department imposed fines and a lifetime professional ban through administrative proceedings."}]}, "North Dakota": {"count": 1, "cases": [{"title": "Cody Peterson v. United States", "type": "ENR", "court": "U.S. District Court for the District of North Dakota", "url": "https://pacificlegal.org/case/prairie-potholes-fws/", "description": "Cody Peterson challenges the Fish & Wildlife Service's reinterpretation of prairie pothole conservation easements that restrict farming on his family's land."}]}, "South Carolina": {"count": 2, "cases": [{"title": "Tiny Zaps v. Dr. Brannon Traxler", "type": "E&O", "court": "U.S. District Court for the District of South Carolina", "url": "https://pacificlegal.org/case/tiny-zaps-tattoo-first-amendment/", "description": "Tiny Zaps and South Carolina residents challenge state laws restricting where tattoo facilities may operate and criminalizing certain tattoos as unconstitutional restrictions on First Amendment expression."}, {"title": "South Carolina Department of Environmental Services v. Reddy", "type": "PROP", "court": "South Carolina Court of Appeals", "url": "https://pacificlegal.org/case/reddy-seawall-south-carolina/", "description": "A homeowner challenges a government agency's demand that he demolish seawall repairs on his private property."}]}, "Utah": {"count": 1, "cases": [{"title": "Willard Land, LLC v. U.S. Army Corps of Engineers", "type": "ENR", "court": "U.S. District Court for the District of Utah", "url": "https://pacificlegal.org/case/willard-swain-irrigation-ditch-clean-water-act/", "description": "Willard Land challenges the Army Corps of Engineers' regulation of irrigation ditches under Clean Water Act authority."}]}};
+
+// PLF brand badge colors per case type
+const TYPE_COLORS = {
+  'PROP': '#907B50',   // Gold
+  'E&O':  '#38575E',   // Slatewater
+  'SOP':  '#202B29',   // Forest
+  'ENR':  '#54571C',   // Tarragon
+};
+const TYPE_LABELS = {
+  'PROP': 'Property Rights',
+  'E&O':  'Equality &amp; Opportunity',
+  'SOP':  'Separation of Powers',
+  'ENR':  'Environment',
+};
+
+const totalCases = Object.values(STATE_DATA).reduce((s, d) => s + d.count, 0);
+const maxCount   = Math.max(...Object.values(STATE_DATA).map(d => d.count));
+document.getElementById('total-badge').textContent = totalCases + ' Active Cases';
+document.getElementById('leg-max').textContent = maxCount;
+document.getElementById('welcome-stat').textContent =
+  totalCases + ' active cases across ' + Object.keys(STATE_DATA).length + ' states';
+
+// ── Map init ─────────────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [38.5, -97],
+  zoom: 4,
+  zoomControl: true,
+  attributionControl: true,
+  maxZoom: 9,
+  minZoom: 3,
+});
+
+// Light gray base map (no API key required)
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+  { attribution: 'Tiles © Esri', maxZoom:10 }
+).addTo(map);
+// Place-name labels on top
+L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+  { attribution:'', maxZoom:10, pane:'shadowPane' }
+).addTo(map);
+
+// Keep the map sized correctly when the layout changes (e.g. rotating a phone)
+window.addEventListener('resize', () => map.invalidateSize());
+
+// ── Capsaicin choropleth color ────────────────────────────────────────────────
+function getColor(count) {
+  if (!count) return '#d4cfc6';
+  // Power scale for better differentiation at low counts
+  const t = Math.pow(count / maxCount, 0.5);
+  // Interpolate light-cap (#f9d0c4) → capsaicin (#E64324) → dark (#8a1a0e)
+  let r, g, b;
+  if (t < 0.5) {
+    const u = t * 2;
+    r = Math.round(249 + u * (230 - 249));
+    g = Math.round(208 + u * (67  - 208));
+    b = Math.round(196 + u * (36  - 196));
+  } else {
+    const u = (t - 0.5) * 2;
+    r = Math.round(230 + u * (138 - 230));
+    g = Math.round(67  + u * (26  - 67));
+    b = Math.round(36  + u * (14  - 36));
+  }
+  return `rgb(${r},${g},${b})`;
+}
+
+function stateStyle(feature) {
+  const name  = feature.properties.name;
+  const count = (STATE_DATA[name] || {}).count || 0;
+  return {
+    fillColor:   getColor(count),
+    fillOpacity: count ? 0.82 : 0.55,
+    color:       '#090C0B',
+    weight:      0.8,
+    opacity:     0.4,
+  };
+}
+
+// ── Sidebar logic ─────────────────────────────────────────────────────────────
+let activeLayer = null;
+
+function openSidebar(stateName) {
+  const data  = STATE_DATA[stateName];
+  const count = data ? data.count : 0;
+
+  document.getElementById('sidebar-state').textContent = stateName;
+  document.getElementById('sidebar-meta').textContent  =
+    count ? count + ' active case' + (count !== 1 ? 's' : '') + ' in this state'
+          : 'No active cases';
+
+  const body = document.getElementById('sidebar-body');
+  body.innerHTML = '';
+
+  if (!data || !data.cases.length) {
+    body.innerHTML = `<p style="font-family:'Work Sans',sans-serif;font-size:.82rem;color:#888;padding:16px 4px">
+      No active PLF cases in this state.</p>`;
+  } else {
+    data.cases.forEach(c => {
+      const color = TYPE_COLORS[c.type] || '#555';
+      const label = TYPE_LABELS[c.type] || c.type;
+      const card  = document.createElement('div');
+      card.className = 'case-card';
+
+      const linkHtml = c.url
+        ? `<a class="case-link" href="${c.url}" target="_blank" rel="noopener">View Case</a>`
+        : '';
+
+      card.innerHTML = `
+        <span class="case-badge" style="background:${color}">${label}</span>
+        <div class="case-title">${c.title}</div>
+        <div class="case-desc">${c.description}</div>
+        <div class="case-court">🏛 ${c.court}</div>
+        ${linkHtml}
+      `;
+      body.appendChild(card);
+    });
+  }
+
+  document.getElementById('sidebar').classList.add('open');
+  const hintEl = document.getElementById('hint');
+  if (hintEl) hintEl.style.display = 'none';
+}
+
+function showWelcome() {
+  const body = document.getElementById('sidebar-body');
+  body.innerHTML = `
+    <div id="sidebar-welcome">
+      <div class="welcome-icon">⚖️</div>
+      <h2>Click any state<br>to view cases</h2>
+      <div class="welcome-divider"></div>
+      <p>Pacific Legal Foundation is fighting for your rights in courts across America.</p>
+      <div class="welcome-stat" id="welcome-stat">${totalCases} active cases across ${Object.keys(STATE_DATA).length} states</div>
+    </div>`;
+  document.getElementById('sidebar-state').textContent = 'Select a State';
+  document.getElementById('sidebar-meta').textContent  = '';
+}
+
+document.getElementById('close-btn').addEventListener('click', () => {
+  if (activeLayer) { geojsonLayer.resetStyle(activeLayer); activeLayer = null; }
+  showWelcome();
+});
+
+// ── GeoJSON layer ─────────────────────────────────────────────────────────────
+let geojsonLayer;
+
+function onEachFeature(feature, layer) {
+  const name  = feature.properties.name;
+  const count = (STATE_DATA[name] || {}).count || 0;
+
+  // Custom tooltip
+  layer.bindTooltip(() => {
+    const txt = count
+      ? `${name}<span class="tooltip-count">${count} case${count !== 1 ? 's' : ''}</span>`
+      : `${name}<span class="tooltip-count">No active cases</span>`;
+    return txt;
+  }, { sticky: true, direction:'top', offset:[0,-2] });
+
+  layer.on({
+    mouseover(e) {
+      if (layer !== activeLayer) {
+        layer.setStyle({ weight: 2, opacity: 0.9, color: '#E64324', fillOpacity: count ? 0.95 : 0.65 });
+        layer.bringToFront();
+      }
+    },
+    mouseout(e) {
+      if (layer !== activeLayer) geojsonLayer.resetStyle(layer);
+    },
+    click(e) {
+      if (activeLayer && activeLayer !== layer) geojsonLayer.resetStyle(activeLayer);
+      activeLayer = layer;
+      layer.setStyle({ weight: 2.5, opacity: 1, color: '#E64324', fillOpacity: count ? 1 : 0.7 });
+      layer.bringToFront();
+      openSidebar(name);
+    },
+  });
+}
+
+fetch('https://cdn.jsdelivr.net/gh/PublicaMundi/MappingAPI@master/data/geojson/us-states.json')
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data => {
+    geojsonLayer = L.geoJson(data, { style: stateStyle, onEachFeature }).addTo(map);
+    map.fitBounds([[24,-125],[50,-66]]);
+  })
+  .catch(err => {
+    console.error('GeoJSON load failed:', err);
+    document.getElementById('geojson-error').style.display = 'block';
+  });
+
+</script>
+</body>
+</html>
